@@ -1,0 +1,3 @@
+no,http://127.0.0.1:5001/process?type=,image normalization v1
+se,http://127.0.0.1:5002/process?type=,image segmentation v1
+po,http://127.0.0.1:5003/predict?type=,print ocr v1

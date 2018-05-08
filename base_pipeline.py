@@ -104,6 +104,7 @@ class BasePipeline(IPipeline):
 
         cer = self.evaluate(evaluation_type)
         print("Normalized distance error is: {}".format(cer))
+        return cer
 
     '''
     Evaluation based on 

@@ -15,7 +15,17 @@ from evaluation.define import Rectangle
 
 
 class BasePipeline(IPipeline):
+    __instance = None
+
+    def __new__(cls):
+        if cls.__instance is None:
+            cls.__instance = super(BasePipeline, cls).__new__(cls)
+            cls.__instance.__initialized = False
+        return cls.__instance
+
     def __init__(self):
+        if self.__initialized: return
+        self.__initialized = True
         super().__init__()
         self.description = "A simple implementation of IPipeline"
         self.module_config_file = "config/module_config.txt"
@@ -66,7 +76,7 @@ class BasePipeline(IPipeline):
         mkdir(label_out_folder)
 
         if labels is not None:
-            labels.to_csv(path_or_buf=join(label_out_folder, TEXT_OUTPUT), sep="\t", header=["box", "label"])
+            labels.to_csv(path_or_buf=join(label_out_folder, TEXT_OUTPUT), sep="\t")
 
         # 3rd: init input data parameter
         input_data = []

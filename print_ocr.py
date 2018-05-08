@@ -28,7 +28,7 @@ class PrintOcr(IModule):
 
         for img in input_data:
             _, img_encoded = cv2.imencode('.png', img)
-            payload = {"image":img_encoded.tobytes()}
+            payload = {"image": img_encoded.tobytes()}
             res = requests.post(self.api_url + self.option, files=payload).json()
 
             ocr_text = unicodedata.normalize("NFKC", res["prediction"]) if res["success"] else ""

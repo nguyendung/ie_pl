@@ -15,6 +15,7 @@ from evaluation.define import Rectangle
 from img_tools import draw_rec_on_img
 from evaluation.define import mergeSort
 import time
+import copy
 
 
 class BasePipeline(IPipeline):
@@ -84,9 +85,6 @@ class BasePipeline(IPipeline):
         debug_out_folder = out_folder + DEBUG_FOLDER
         mkdir(debug_out_folder)
 
-        # img = cv2.imread(join(raw_out_folder, img_name))
-        # print(img)
-
         if labels is not None:
             labels.to_csv(path_or_buf=join(label_out_folder, TEXT_OUTPUT), sep="\t")
 
@@ -127,7 +125,7 @@ class BasePipeline(IPipeline):
 
         start_time = time.time()
 
-        cer = self.evaluate(evaluation_type)
+        cer, compared_text = self.evaluate(evaluation_type)
         print("Normalized distance error is: {}".format(cer))
 
         print("---------- Evaluating costs : {} seconds ------------ ".format(time.time() - start_time))
@@ -150,14 +148,12 @@ class BasePipeline(IPipeline):
             i = 0
 
             boxes[:] = []
-            boxes = box_detail['predicts']
+            boxes = copy.deepcopy(box_detail['predicts'])
             mergeSort(boxes, 0, len(boxes) - 1)
-            # boxes = av['predicts']
-            # mergeSort(boxes, 0, len(boxes) - 1)
 
             for predict_box in boxes:
                 p_box = predict_box['box']
-                draw_rec_on_img(debug_img, rec=p_box, text="{}-{}".format(str(id), str(i)), color=predicted_color)
+                draw_rec_on_img(debug_img, rec=p_box, text="   {}".format(str(i)), color=predicted_color)
                 i += 1
 
         cv2.imwrite(join(self.current_output_folder, DEBUG_FOLDER, "debug.png"), debug_img)
@@ -172,10 +168,20 @@ class BasePipeline(IPipeline):
         evaluator_handler.set_predicted_values(predicts)
         evaluator_handler.mapping()
 
-        cer = evaluator_handler.measure()
+        cer, compared_texts = evaluator_handler.measure()
         self.create_debug_data(actuals)
 
-        return cer
+        with open(join(self.current_output_folder, DEBUG_FOLDER, TEXT_OUTPUT), 'w') as out_file:
+            out_file.write("{}\t{}\t{}\n".format('id', 'label', 'predict'))
+            id = 0
+            for (l, p) in compared_texts:
+                out_file.write("{}\t{}\t{}\n".format(str(id), l, p))
+                id += 1
+
+        out_file.close()
+
+        return cer, compared_texts
+
 
 
     def build_evaluator_inputs(self, option):
@@ -183,10 +189,8 @@ class BasePipeline(IPipeline):
         actuals = {}
 
         if option == EVALTYPE.TEXT_AND_BOX.value:
-
             # 1st: build predicted input
             # 1.a Get the cut box and the corresponding ocr-text
-
             boxes = pd.read_csv(join(self.current_output_folder, ModuleCode.SEGMENTATION.value, TEXT_OUTPUT)
                                 , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
 

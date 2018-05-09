@@ -1,7 +1,7 @@
 from evaluation.IEvaluator import IEvaluator
 from evaluation.define import area, mergeSort
 from nltk.metrics.distance import edit_distance
-
+import copy
 
 '''
 Format for:
@@ -15,19 +15,23 @@ class EvaluatorByTextAndBox(IEvaluator):
         error_distance = 0
         boxes = []
         character_count = 0.0
+        compared_texts = []
         for ak, av in self.actuals.items():
             character_count += len(av['label'])
             boxes[:] = []
-            boxes = av['predicts']
+            boxes = copy.deepcopy(av['predicts'])
+
             mergeSort(boxes, 0, len(boxes) - 1)
+
             ss = []
             for x in boxes:
                 ss.append(str(x['text']))
             merged_predicted_text = ''.join(ss)
             box_error_distance = edit_distance(av['label'].replace(" ", ""), merged_predicted_text.replace(" ", ""))
+            compared_texts.append((av['label'].replace(" ", ""), merged_predicted_text.replace(" ", "")))
             error_distance += box_error_distance
         normalized_error_distance = error_distance/character_count
-        return normalized_error_distance
+        return normalized_error_distance, compared_texts
 
     def mapping(self):
         for pk, pv in self.predicteds.items():

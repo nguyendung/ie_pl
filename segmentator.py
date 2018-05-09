@@ -29,6 +29,7 @@ class Segmentator(IModule):
         for img in input_data:
             content_type = 'image/jpeg'
             headers = {'content-type': content_type}
+
             _, img_encoded = cv2.imencode('.png', img)
             res = requests.post(self.api_url + self.option, data=img_encoded.tostring(), headers=headers)
 

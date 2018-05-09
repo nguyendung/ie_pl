@@ -29,7 +29,7 @@ def predict():
         label_string = base64.b64decode(request.files['label'].read()).decode('utf8')
         label = pd.read_csv(io.StringIO(label_string), sep="\t")
         pipeline = BasePipeline()
-        cer = pipeline.run_pipeline(res_img, img_name="test.png", labels=label)
+        cer = pipeline.run_pipeline(res_img, labels=label)
         data["cer"] = cer
 
     setattr(g, "_state", "Free")

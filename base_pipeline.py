@@ -3,15 +3,18 @@ from enum import Enum
 import datetime
 from normalizator import Normalizator
 from segmentator import Segmentator
-from print_ocr import PrintOcr
+from ocr import OcrEngine
 import cv2
 from os.path import join
 from os import mkdir
 from evaluation.evaluator_factory import evaluator_factory, EVALTYPE
 import pandas as pd
-from define import TEXT_OUTPUT, RAW_FOLDER, TRUE_LABEL_FOLDER
+from define import TEXT_OUTPUT, RAW_FOLDER, TRUE_LABEL_FOLDER, DEBUG_FOLDER, IMG_INPUT
 import csv
 from evaluation.define import Rectangle
+from img_tools import draw_rec_on_img
+from evaluation.define import mergeSort
+import time
 
 
 class BasePipeline(IPipeline):
@@ -33,6 +36,7 @@ class BasePipeline(IPipeline):
         self.load_module_configuration()
         self.load_running_configuration()
         self.current_output_folder = ""
+        self.ocr_engine = ""
 
     def load_module_configuration(self):
         with open(self.module_config_file, 'r') as f:
@@ -59,7 +63,9 @@ class BasePipeline(IPipeline):
     def clear_pipeline(self):
         pass
 
-    def run_pipeline(self, img, evaluation_type=EVALTYPE.TEXT_AND_BOX.value, labels=None, img_name="raw.png"):
+    def run_pipeline(self, img, evaluation_type=EVALTYPE.TEXT_AND_BOX.value, labels=None, img_name=IMG_INPUT):
+
+        self.print_pipeline_info()
 
         # 1st: Create output folder
         out_folder = "/tmp/{}/".format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
@@ -75,6 +81,12 @@ class BasePipeline(IPipeline):
         label_out_folder = out_folder + TRUE_LABEL_FOLDER
         mkdir(label_out_folder)
 
+        debug_out_folder = out_folder + DEBUG_FOLDER
+        mkdir(debug_out_folder)
+
+        # img = cv2.imread(join(raw_out_folder, img_name))
+        # print(img)
+
         if labels is not None:
             labels.to_csv(path_or_buf=join(label_out_folder, TEXT_OUTPUT), sep="\t")
 
@@ -85,10 +97,17 @@ class BasePipeline(IPipeline):
         # 4th: load running module, set config and call run
         for mo_config in self.running_modules:
             [mo_code, mode_option] = mo_config
+            
+            #@TODO: hotfix here 
+            if mo_code == ModuleCode.PRINT_OCR.value or mo_code == ModuleCode.HW_OCR.value:
+                self.ocr_engine = mo_code
+            
             module_handler = module_factory(mo_code)
             module_detail = self.available_modules[mo_code]
 
             mkdir(join(out_folder, mo_code))
+
+            start_time = time.time()
 
             module_handler.set_module_config(mo_code, module_detail["api"], out_folder + mo_code, mode_option)
             module_handler.run_module(input_data)
@@ -97,18 +116,54 @@ class BasePipeline(IPipeline):
             input_data.clear()
             input_data = module_handler.get_output()
 
+            print("--------- {} running in {} seconds ---------- ".format(mo_code, (time.time() - start_time)))
+
         # We will run the evaluation module if the following conditions are met:
         # 1. There is SEGMENTATION method
         # 2. There is OCR method
         # 3. There is true label file in correct format
 
+        print("---------- Start Evaluating ----------- ")
+
+        start_time = time.time()
+
         cer = self.evaluate(evaluation_type)
         print("Normalized distance error is: {}".format(cer))
+
+        print("---------- Evaluating costs : {} seconds ------------ ".format(time.time() - start_time))
         return cer
 
     '''
     Evaluation based on 
     '''
+
+    def create_debug_data(self, actuals):
+        # 1st: create cut debug img
+        debug_img = cv2.imread(join(self.current_output_folder, RAW_FOLDER, IMG_INPUT))
+
+        actual_color = (255, 0, 0)
+        predicted_color = (0, 255, 0)
+        boxes = []
+        # 2nd: draw boxes
+        for id, box_detail in actuals.items():
+            draw_rec_on_img(debug_img, rec=box_detail['box'], text=str(id), color=actual_color)
+            i = 0
+
+            boxes[:] = []
+            boxes = box_detail['predicts']
+            mergeSort(boxes, 0, len(boxes) - 1)
+            # boxes = av['predicts']
+            # mergeSort(boxes, 0, len(boxes) - 1)
+
+            for predict_box in boxes:
+                p_box = predict_box['box']
+                draw_rec_on_img(debug_img, rec=p_box, text="{}-{}".format(str(id), str(i)), color=predicted_color)
+                i += 1
+
+        cv2.imwrite(join(self.current_output_folder, DEBUG_FOLDER, "debug.png"), debug_img)
+        return True
+
+
     def evaluate(self, evaluation_type):
         evaluator_handler = evaluator_factory(evaluation_type)
         predicts, actuals = self.build_evaluator_inputs(evaluation_type)
@@ -116,7 +171,12 @@ class BasePipeline(IPipeline):
         evaluator_handler.set_actual_values(actuals)
         evaluator_handler.set_predicted_values(predicts)
         evaluator_handler.mapping()
-        return evaluator_handler.measure()
+
+        cer = evaluator_handler.measure()
+        self.create_debug_data(actuals)
+
+        return cer
+
 
     def build_evaluator_inputs(self, option):
         predicts = {}
@@ -130,7 +190,7 @@ class BasePipeline(IPipeline):
             boxes = pd.read_csv(join(self.current_output_folder, ModuleCode.SEGMENTATION.value, TEXT_OUTPUT)
                                 , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
 
-            texts = pd.read_csv(join(self.current_output_folder, ModuleCode.PRINT_OCR.value, TEXT_OUTPUT)
+            texts = pd.read_csv(join(self.current_output_folder, self.ocr_engine, TEXT_OUTPUT)
                                 , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
 
             for bo, te in list(zip(boxes, texts)):
@@ -165,8 +225,8 @@ class BasePipeline(IPipeline):
 
     def print_pipeline_info(self):
         print(self.description)
-        print(self.running_modules)
-        print(self.available_modules)
+        print("Selected modules: " + str(self.running_modules))
+        print("Available modules: " + str(self.available_modules))
 
 
 class ModuleCode(Enum):
@@ -176,7 +236,7 @@ class ModuleCode(Enum):
     FORM_CLASSIFICATION = "fo"
     SEGMENTATION = "se"
     PRINT_OCR = "po"
-    HW_OCR = "ho"
+    HW_OCR = "hw"
     OCR_CORRECTION = "oc"
     EVALUATION = "ev"
     TRUE_LABEL = 'la'
@@ -188,8 +248,8 @@ def module_factory(mo_code):
         # ModuleCode.BINARIZATION.value: Binarizator(),
         # ModuleCode.FORM_CLASSIFICATION.value: FormClassifier(),
         ModuleCode.SEGMENTATION.value: Segmentator(),
-        ModuleCode.PRINT_OCR.value: PrintOcr(),
-        # ModuleCode.HW_OCR.value: HwOcror(),
+        ModuleCode.PRINT_OCR.value: OcrEngine(),
+        ModuleCode.HW_OCR.value: OcrEngine(),
         # ModuleCode.OCR_CORRECTION.value: OcrCorrector(),
         # ModuleCode.EVALUATION.value: Evaluator(),
     }[mo_code]
@@ -200,8 +260,8 @@ if __name__ == '__main__':
 
     b = BasePipeline()
     b.print_pipeline_info()
-    img = cv2.imread("data/certificate_1.png")
-    b.run_pipeline(img, img_name="test.png", labels=ls, evaluation_type=EVALTYPE.TEXT_AND_BOX.value)
+    img = cv2.imread("data/SG1-48-1.tif")
+    b.run_pipeline(img, labels=ls, evaluation_type=EVALTYPE.TEXT_AND_BOX.value)
 
 
 

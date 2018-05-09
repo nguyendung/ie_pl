@@ -18,7 +18,7 @@ class IModule(metaclass=ABCMeta):
 
     @abstractmethod
     def run_module(self, input_data):
-        print("Running {}".format(self.mo_code))
+        print("Running {} with api: {}".format(self.mo_code, self.api_url))
         pass
 
     @abstractmethod

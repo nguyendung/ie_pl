@@ -18,7 +18,10 @@ class Segmentator(IModule):
         return cls.__instance
 
     def __init__(self):
-        if self.__initialized: return
+
+        if self.__initialized: 
+            self.boxes.clear()
+            return
         self.__initialized = True
         super().__init__()
         self.boxes = []

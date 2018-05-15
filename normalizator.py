@@ -29,8 +29,8 @@ class Normalizator(IModule):
             _, img_encoded = cv2.imencode('.png', img)
             res = requests.post(self.api_url + self.option, data=img_encoded.tostring(), headers=headers)
 
-            nparr = np.fromstring(res.content, np.uint8)
-            res_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            np_arr = np.fromstring(res.content, np.uint8)
+            res_img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
             self.output_data.append(res_img)
 

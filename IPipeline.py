@@ -6,6 +6,7 @@ class IPipeline(metaclass=ABCMeta):
         self.description = ""
         self.available_modules = {}
         self.running_modules = []
+        self.cans = []
         pass
 
     '''
@@ -30,11 +31,7 @@ class IPipeline(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def run_pipeline(self, img):
-        pass
-
-    @abstractmethod
-    def evaluate(self):
+    def run_pipeline(self, img, img_name=""):
         pass
 
     @abstractmethod

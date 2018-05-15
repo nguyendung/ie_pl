@@ -1,4 +1,9 @@
-no,http://127.0.0.1:5001/process?type=,image normalization v1
-se,http://127.0.0.1:5002/process?type=,image segmentation v1
-po,http://127.0.0.1:5005/process?type=,print ocr v1
-hw,http://52.43.3.201:6001/predict?type=,hw ocr v1
+[no]
+1: http://127.0.0.1:5001/process?type=,CV Image Deskewer
+[se]
+1: http://127.0.0.1:5004/process?type=,DL Segmentation
+2: http://127.0.0.1:5002/process?type=,CV Segmentation
+[ocr]
+1: http://127.0.0.1:5003/predict?type=,DL Print OCR
+2: http://127.0.0.1:5005/process?type=,Tess Print OCR
+3: http://52.43.3.201:6001/predict?type=,DL HW OCR

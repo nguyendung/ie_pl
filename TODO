@@ -2,3 +2,5 @@ Consider 2 things:
 1. Now each method for one module is deployed independently => for short, we can keep it and describe each method as 1 record in module_config.txt
 However:
 2. It's better to move all methods for one module be under a factory class.
+
+tuning DL LC's "scale" parameter

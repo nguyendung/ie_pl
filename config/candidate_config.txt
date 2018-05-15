@@ -1,0 +1,2 @@
+Line cut DL and DL OCR,se:1:1-ocr:1:1
+Line cut CV and DL OCR,se:2:1-ocr:1:1

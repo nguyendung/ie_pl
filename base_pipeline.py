@@ -89,13 +89,13 @@ class BasePipeline(IPipeline):
         pass
 
     def run_pipeline(self, img, img_size=0, running_config=None, labels=None, img_name=IMG_INPUT):
+
+        print("=========================================================================================")
         self.img_name = img_name
         self.img_size = img_size
         self.labels = labels
         self.running_modules = running_config
         self.print_pipeline_info()
-
-        print("=========================================================================================")
 
         # 1st: Create output folder
         out_folder = "/tmp/{}_{}/".format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), img_name)
@@ -263,16 +263,14 @@ class BasePipeline(IPipeline):
         texts = pd.read_csv(join(self.current_output_folder, ModuleCode.OCR.value, TEXT_OUTPUT)
                             , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
 
-        id = 1
         for bo, te in list(zip(boxes, texts)):
             p1, p2, p3, p4 = bo['box'].split(",")
             x1, y1 = p1[1:-1].split()
             x2, y2 = p3[1:-1].split()
             box = Rectangle(int(float(x1)), int(float(y1)), int(float(x2)), int(float(y2)))
 
-            draw_rec_on_img(debug_img, rec=box, text=str(id), color=predicted_color)
+            draw_rec_on_img(debug_img, rec=box, text=te['id'], color=predicted_color)
 
-            id += 1
         cv2.imwrite(join(self.current_output_folder, DEBUG_FOLDER, IMG_OUTPUT), debug_img)
 
     def create_debug_img(self, labeled_data):

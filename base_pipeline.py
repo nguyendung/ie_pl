@@ -269,7 +269,7 @@ class BasePipeline(IPipeline):
             x2, y2 = p3[1:-1].split()
             box = Rectangle(int(float(x1)), int(float(y1)), int(float(x2)), int(float(y2)))
 
-            draw_rec_on_img(debug_img, rec=box, text=te['id'], color=predicted_color)
+            draw_rec_on_img(debug_img, rec=box, text=str(te['id']), color=predicted_color)
 
         cv2.imwrite(join(self.current_output_folder, DEBUG_FOLDER, IMG_OUTPUT), debug_img)
 

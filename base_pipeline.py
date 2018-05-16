@@ -95,6 +95,8 @@ class BasePipeline(IPipeline):
         self.running_modules = running_config
         self.print_pipeline_info()
 
+        print("=========================================================================================")
+
         # 1st: Create output folder
         out_folder = "/tmp/{}_{}/".format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), img_name)
         mkdir(out_folder)
@@ -137,7 +139,7 @@ class BasePipeline(IPipeline):
             input_data.clear()
             input_data = module_handler.get_output()
 
-            print("--------- {} running in {} seconds ---------- ".format(mo_code, (time.time() - start_time)))
+            print("{} running in {} seconds".format(mo_code, (time.time() - start_time)))
 
         cer = self.evaluate_pipeline()
 
@@ -150,7 +152,7 @@ class BasePipeline(IPipeline):
 
     def evaluate_pipeline(self, eval_type=EVALTYPE.TEXT_AND_BOX.value):
 
-        print("---------- Start Evaluating ----------- ")
+        # print("---------- Start Evaluating ----------- ")
         cer = 0.0
 
         # if there is segmentation module AND OCR Module and Label file:
@@ -345,7 +347,7 @@ class BasePipeline(IPipeline):
     def print_pipeline_info(self):
         # print(self.description)
         # print("Available modules: " + str(self.available_modules))
-        print("Running modules: " + str(self.running_modules))
+        print("Running modules: {} for image {}".format(str(self.running_modules), self.img_name))
 
     def self_check(self):
 

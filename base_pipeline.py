@@ -17,7 +17,7 @@ from evaluation.define import mergeSort
 import time
 import copy
 import configparser
-
+from shutil import copyfile
 
 
 class BasePipeline(IPipeline):
@@ -138,7 +138,7 @@ class BasePipeline(IPipeline):
 
             print("--------- {} running in {} seconds ---------- ".format(mo_code, (time.time() - start_time)))
 
-        cer = self.evaludate_pipeline()
+        cer = self.evaluate_pipeline()
 
         return cer, out_folder
 
@@ -146,15 +146,20 @@ class BasePipeline(IPipeline):
     # 1. There is SEGMENTATION method
     # 2. There is OCR method
     # 3. There is true label file in correct format
-    def evaludate_pipeline(self, eval_type = EVALTYPE.TEXT_AND_BOX.value):
+
+    def evaluate_pipeline(self, eval_type=EVALTYPE.TEXT_AND_BOX.value):
+
         print("---------- Start Evaluating ----------- ")
         cer = 0.0
 
         # if there is segmentation module AND OCR Module and Label file:
         if ModuleCode.SEGMENTATION.value in list([i[0] for i in self.running_modules]) and ModuleCode.OCR.value in list([i[0] for i in self.running_modules]):
+
+            predicted_data = self.build_predicted_data(eval_type)
+
             if self.labels is not None:
                 evaluator_handler = evaluator_factory(eval_type)
-                predicted_data, labeled_data = self.build_predicted_data(eval_type), self.build_labeled_data(eval_type)
+                labeled_data = self.build_labeled_data(eval_type)
 
                 evaluator_handler.set_actual_values(labeled_data)
                 evaluator_handler.set_predicted_values(predicted_data)
@@ -163,22 +168,22 @@ class BasePipeline(IPipeline):
                 cer, compared_texts = evaluator_handler.measure()
 
                 # create debug image
-                self.create_debug_img(labeled_data)
-
-                # create debug predict-label OCR text
-                with open(join(self.current_output_folder, DEBUG_FOLDER, TEXT_OUTPUT), 'w') as out_file:
-                    out_file.write("{}\t{}\t{}\n".format('id', 'label', 'predict'))
-                    id = 0
-                    for (l, p) in compared_texts:
-                        out_file.write("{}\t{}\t{}\n".format(str(id), l, p))
-                        id += 1
-
-                out_file.close()
-
-                # write measure score:
-                with open(join(self.current_output_folder, DEBUG_FOLDER, CER_FILE), 'w') as out_file:
-                    out_file.write("{}".format(str(cer)))
-
+                # self.create_debug_img(labeled_data)
+                #
+                # # create debug predict-label OCR text
+                # with open(join(self.current_output_folder, DEBUG_FOLDER, TEXT_OUTPUT), 'w') as out_file:
+                #     out_file.write("{}\t{}\t{}\n".format('id', 'label', 'predict'))
+                #     id = 0
+                #     for (l, p) in compared_texts:
+                #         out_file.write("{}\t{}\t{}\n".format(str(id), l, p))
+                #         id += 1
+                #
+                # out_file.close()
+                #
+                # # write measure score:
+                # with open(join(self.current_output_folder, DEBUG_FOLDER, CER_FILE), 'w') as out_file:
+                #     out_file.write("{}".format(str(cer)))
+                #
                 # create VIA csv file
                 with open(join(self.current_output_folder, ModuleCode.SEGMENTATION.value, VIA_FILE), 'r') as f:
                     contents = f.readlines()
@@ -199,9 +204,6 @@ class BasePipeline(IPipeline):
 
                 print("Normalized distance error is: {}".format(cer))
             else:
-
-                predicted_data = self.build_predicted_data(eval_type)
-                # create VIA csv file
                 with open(join(self.current_output_folder, ModuleCode.SEGMENTATION.value, VIA_FILE), 'r') as f:
                     contents = f.readlines()
                 f.close()
@@ -213,16 +215,51 @@ class BasePipeline(IPipeline):
                 with open(join(self.current_output_folder, DEBUG_FOLDER, VIA_FILE), 'w') as f:
                     # f.write("{}\r\n".format('#filename,file_size,file_attributes,region_count,region_id,region_shape_attributes,region_attributes'))
                     for c, t in list(zip(contents, list(predicted_data.values()))):
-                        ocr_str = ',"{""OCR"":""' + "{}".format(t) + '""}"'
-                        c = c[:-5]
-                        c += ocr_str
                         f.write("{}\r\n".format(c))
                 f.close()
+
+                pass
+
+                # predicted_data = self.build_predicted_data(eval_type)
+                # # create VIA csv file
+                # with open(join(self.current_output_folder, ModuleCode.SEGMENTATION.value, VIA_FILE), 'r') as f:
+                #     contents = f.readlines()
+                # f.close()
+                #
+                # contents = [c.strip() for c in contents]
+                # contents = [c.replace("filename", self.img_name) for c in contents]
+                # contents = [c.replace("imgSize", str(self.img_size)) for c in contents]
+                #
+                # with open(join(self.current_output_folder, DEBUG_FOLDER, VIA_FILE), 'w') as f:
+                #     # f.write("{}\r\n".format('#filename,file_size,file_attributes,region_count,region_id,region_shape_attributes,region_attributes'))
+                #     for c, t in list(zip(contents, list(predicted_data.values()))):
+                #         ocr_str = ',"{""OCR"":""' + "{}".format(t) + '""}"'
+                #         c = c[:-5]
+                #         c += ocr_str
+                #         f.write("{}\r\n".format(c))
+                # f.close()
+
+            ocr_file = join(self.current_output_folder, ModuleCode.OCR.value, TEXT_OUTPUT)
+            dst_file = join(self.current_output_folder, DEBUG_FOLDER, TEXT_OUTPUT)
+            copyfile(ocr_file, dst_file)
+
+            self.create_linecut_img(predicted_data)
+
         else:
             print("Module or Label file missing")
         return cer
 
-    def create_debug_img(self, actuals):
+    def create_linecut_img(self, predicted_data):
+        debug_img = cv2.imread(join(self.current_output_folder, RAW_FOLDER, self.img_name))
+        predicted_color = (0, 255, 0)
+
+        id = 1
+        for rec in list(predicted_data.keys()):
+            draw_rec_on_img(debug_img, rec=rec, text=str(id), color=predicted_color)
+            id += 1
+        cv2.imwrite(join(self.current_output_folder, DEBUG_FOLDER, IMG_OUTPUT), debug_img)
+
+    def create_debug_img(self, labeled_data):
         # 1st: create cut debug img
         debug_img = cv2.imread(join(self.current_output_folder, RAW_FOLDER, self.img_name))
 
@@ -231,7 +268,7 @@ class BasePipeline(IPipeline):
         boxes = []
 
         # 2nd: draw boxes
-        for id, box_detail in actuals.items():
+        for id, box_detail in labeled_data.items():
             draw_rec_on_img(debug_img, rec=box_detail['box'], text=str(id), color=actual_color)
             i = 0
 
@@ -247,46 +284,7 @@ class BasePipeline(IPipeline):
         cv2.imwrite(join(self.current_output_folder, DEBUG_FOLDER, IMG_OUTPUT), debug_img)
         return True
 
-    # def build_evaluator_inputs(self, option):
-    #     predicts = {}
-    #     actuals = {}
-    #
-    #     if option == EVALTYPE.TEXT_AND_BOX.value:
-    #         # 1st: build predicted input
-    #         # 1.a Get the cut box and the corresponding ocr-text
-    #         boxes = pd.read_csv(join(self.current_output_folder, ModuleCode.SEGMENTATION.value, TEXT_OUTPUT)
-    #                             , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
-    #
-    #         texts = pd.read_csv(join(self.current_output_folder, ModuleCode.OCR.value, TEXT_OUTPUT)
-    #                             , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
-    #
-    #         for bo, te in list(zip(boxes, texts)):
-    #             p1, p2, p3, p4 = bo['box'].split(",")
-    #             # rec_code = bo['box'][1:-1]
-    #             x1, y1 = p1[1:-1].split()
-    #             x2, y2 = p3[1:-1].split()
-    #             box = Rectangle(int(float(x1)), int(float(y1)), int(float(x2)), int(float(y2)))
-    #             predicts[box] = te['text']
-    #
-    #         # 2nd: build true label input
-    #         labels = pd.read_csv(join(self.current_output_folder, TRUE_LABEL_FOLDER, TEXT_OUTPUT)
-    #                              , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
-    #
-    #         la_index = 0
-    #         for la in labels:
-    #             rec_code = la['box'][1:-1]
-    #             x1, y1, x2, y2 = rec_code.split(",")
-    #             box = Rectangle(int(x1), int(y1), int(x2), int(y2))
-    #
-    #             actual_value = {}
-    #             actual_value['box'] = box
-    #             actual_value['label'] = la['label']
-    #             actual_value['predicts'] = []
-    #
-    #             actuals[la_index] = actual_value
-    #             la_index += 1
-    #
-    #     return predicts, actuals
+
 
     def build_predicted_data(self, option):
         predicts = {}

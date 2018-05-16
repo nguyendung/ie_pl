@@ -9,8 +9,9 @@ import io
 import pandas as pd
 from multiprocessing import Value
 import sys
-from define import DEBUG_FOLDER, VIA_FILE
+from define import DEBUG_FOLDER, VIA_FILE, TEXT_OUTPUT, IMG_OUTPUT
 from os.path import join
+import base64
 
 app = Flask(__name__)
 res_cache = {}
@@ -74,21 +75,40 @@ def get():
             via_data.append("{}\r\n".format('#filename,file_size,file_attributes,region_count,region_id,region_shape_attributes,region_attributes'))
             sum_cer = 0.0
             count_img = 0
+            img_data = {}
+            ocr_text = {}
+            cer_value = {}
             for [cer, out_folder, img_name] in pl_data[key]:
                 sum_cer += cer
                 count_img += 1
 
+                cer_value[img_name] = str(cer)
+
+                # Get VIA Data
                 with open(join(out_folder, DEBUG_FOLDER, VIA_FILE), 'r') as f:
                     contents = f.readlines()
 
                 for c in contents:
                     via_data.append(c)
 
+                # Get Image
+                img = cv2.imread(join(out_folder, DEBUG_FOLDER, IMG_OUTPUT))
+                _, img_encoded = cv2.imencode(".png", img)
+                img_data[img_name] = base64.b64encode(img_encoded).decode('utf-8')
+
+                # Get OCR Text
+                with open(join(out_folder, DEBUG_FOLDER, TEXT_OUTPUT), 'r') as f:
+                    contents = f.readlines()
+                ocr_text[img_name] = contents
+
             via_data_str = ''.join(i for i in via_data)
 
             data[str(key)]["ned"] = sum_cer/count_img
             data[str(key)]["img_count"] = count_img
             data[str(key)]["via_data"] = via_data_str
+            data[str(key)]["imgs"] = img_data
+            data[str(key)]["ocr"] = ocr_text
+            data[str(key)]["cer"] = cer_value
     else:
         data["Success"] = False
 
@@ -96,4 +116,4 @@ def get():
 
 
 if __name__ == '__main__':
-    app.run(port=6000, host="0.0.0.0")
+    app.run(port=5006, host="0.0.0.0")

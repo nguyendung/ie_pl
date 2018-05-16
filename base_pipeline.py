@@ -244,19 +244,32 @@ class BasePipeline(IPipeline):
             dst_file = join(self.current_output_folder, DEBUG_FOLDER, TEXT_OUTPUT)
             copyfile(ocr_file, dst_file)
 
-            self.create_linecut_img(predicted_data)
+            self.create_linecut_img()
 
         else:
             print("Module or Label file missing")
         return cer
 
-    def create_linecut_img(self, predicted_data):
+    def create_linecut_img(self):
         debug_img = cv2.imread(join(self.current_output_folder, RAW_FOLDER, self.img_name))
+
         predicted_color = (0, 255, 0)
 
+        boxes = pd.read_csv(join(self.current_output_folder, ModuleCode.SEGMENTATION.value, TEXT_OUTPUT)
+                            , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
+
+        texts = pd.read_csv(join(self.current_output_folder, ModuleCode.OCR.value, TEXT_OUTPUT)
+                            , sep="\t", header=0, quoting=csv.QUOTE_NONE).fillna("").to_dict("records")
+
         id = 1
-        for rec in list(predicted_data.keys()):
-            draw_rec_on_img(debug_img, rec=rec, text=str(id), color=predicted_color)
+        for bo, te in list(zip(boxes, texts)):
+            p1, p2, p3, p4 = bo['box'].split(",")
+            x1, y1 = p1[1:-1].split()
+            x2, y2 = p3[1:-1].split()
+            box = Rectangle(int(float(x1)), int(float(y1)), int(float(x2)), int(float(y2)))
+
+            draw_rec_on_img(debug_img, rec=box, text=str(id), color=predicted_color)
+
             id += 1
         cv2.imwrite(join(self.current_output_folder, DEBUG_FOLDER, IMG_OUTPUT), debug_img)
 

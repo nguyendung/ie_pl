@@ -60,7 +60,8 @@ def predict():
 def get():
     data = {}
     uuid_string = "".join(map(chr, request.files['uuid'].read()))
-
+    print(res_cache)
+    
     if uuid_string in res_cache:
         pl_data = res_cache[uuid_string]
         for key in list(pl_data.keys()):

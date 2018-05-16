@@ -92,6 +92,7 @@ class BasePipeline(IPipeline):
         self.img_name = img_name
         self.img_size = img_size
         self.labels = labels
+        self.running_modules = running_config
         self.print_pipeline_info()
 
         # 1st: Create output folder
@@ -329,8 +330,8 @@ class BasePipeline(IPipeline):
 
 
     def print_pipeline_info(self):
-        print(self.description)
-        print("Available modules: " + str(self.available_modules))
+        # print(self.description)
+        # print("Available modules: " + str(self.available_modules))
         print("Running modules: " + str(self.running_modules))
 
     def self_check(self):

@@ -1,0 +1,7 @@
+flask
+nltk
+opencv-contrib-python
+opencv-python
+pandas
+requests
+requests-toolbelt
